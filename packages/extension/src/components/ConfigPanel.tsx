@@ -49,6 +49,9 @@ export function ConfigPanel({ config, onSave, onClose }: ConfigPanelProps) {
 	const [showToken, setShowToken] = useState(false)
 	const [showApiKey, setShowApiKey] = useState(false)
 
+	const [jarvisProactive, setJarvisProactive] = useState(false)
+	const [jarvisRules, setJarvisRules] = useState('')
+
 	const [prevConfig, setPrevConfig] = useState(config)
 	if (prevConfig !== config) {
 		setPrevConfig(config)
@@ -63,7 +66,17 @@ export function ConfigPanel({ config, onSave, onClose }: ConfigPanelProps) {
 		setDisableNamedToolChoice(config?.disableNamedToolChoice ?? false)
 	}
 
-	// Poll for user auth token every second until found
+	// Load JARVIS proactive settings
+	useEffect(() => {
+		chrome.storage.local.get(['jarvisProactive', 'jarvisRules']).then((r) => {
+			setJarvisProactive(Boolean(r.jarvisProactive))
+			setJarvisRules((r.jarvisRules as string) || '')
+		})
+	}, [])
+
+	const handleSaveJarvis = async () => {
+		await chrome.storage.local.set({ jarvisProactive, jarvisRules })
+	}
 	useEffect(() => {
 		let interval: NodeJS.Timeout | null = null
 
@@ -267,6 +280,37 @@ export function ConfigPanel({ config, onSave, onClose }: ConfigPanelProps) {
 					<option value="zh-CN">中文</option>
 				</select>
 			</div>
+
+			{/* JARVIS Proactive Mode */}
+		<div className="flex flex-col gap-2 p-3 rounded-md border border-cyan-500/30 bg-cyan-500/5">
+			<div className="flex items-center justify-between">
+				<div>
+					<p className="text-xs font-semibold">JARVIS Proactive Mode</p>
+					<p className="text-[10px] text-muted-foreground">
+						JARVIS watches and interrupts when you're off-track.
+					</p>
+				</div>
+				<Switch checked={jarvisProactive} onCheckedChange={setJarvisProactive} />
+			</div>
+			<label className="text-[10px] text-muted-foreground">
+				Your rules / brand voice (enforced strictly)
+			</label>
+			<textarea
+				placeholder="e.g. Never send emails before proofreading. My brand voice is concise and bold."
+				value={jarvisRules}
+				onChange={(e) => setJarvisRules(e.target.value)}
+				rows={3}
+				className="text-xs rounded-md border border-input bg-background px-3 py-2 resize-y min-h-[60px]"
+			/>
+			<Button
+				variant="outline"
+				size="sm"
+				className="self-end h-7 text-xs cursor-pointer"
+				onClick={handleSaveJarvis}
+			>
+				Save JARVIS
+			</Button>
+		</div>
 
 			{/* Advanced Config */}
 			<button

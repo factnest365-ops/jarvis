@@ -28,6 +28,26 @@ The GUI Agent Living in Your Webpage. One script gives any web page its own AI a
 
 ---
 
+## 🤖 JARVIS Mode — Proactive Agent (this fork)
+
+This fork adds **JARVIS**, a proactive layer on top of Page Agent. Page Agent is
+*reactive* (you tell it what to do). JARVIS is *proactive*: it watches your real
+browser activity — clicks, typing, form submits, navigation — and interrupts
+with a correction, warning, or nudge **before** you go off-track.
+
+- **Engine:** `packages/extension/src/jarvis/Watcher.ts` — observes DOM events,
+  debounces, and asks the same LLM backend whether to intervene.
+- **Prompt:** `jarvis/prompts/jarvis_system.md` — the JARVIS persona + intervention
+  criteria. Enforces your personal rules / brand voice.
+- **UI:** a floating JARVIS bubble (with voice for high-severity alerts) rendered
+  by `entrypoints/jarvis-watcher.content.ts`.
+- **Toggle:** enable **JARVIS Proactive Mode** + set your rules in the extension
+  Settings panel (`ConfigPanel.tsx`).
+
+This is the browser-native foundation of a larger JARVIS roadmap (proactive
+copilot → business runner → autonomous ops). Built on Alibaba's open-source
+Page Agent (MIT).
+
 ## ✨ Features
 
 - **🎯 Easy integration**
