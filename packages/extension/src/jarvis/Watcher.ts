@@ -11,6 +11,7 @@
 import { LLM, type Tool } from '@page-agent/llms'
 import * as z from 'zod/v4'
 
+import type { ContextGatherer } from './context'
 import SYSTEM_PROMPT from './prompts/jarvis_system.md?raw'
 
 export type Severity = 'info' | 'warn' | 'critical'
@@ -38,6 +39,8 @@ export interface WatcherOptions {
 	debounceMs?: number
 	/** Max recent actions kept in context. */
 	maxContextActions?: number
+	/** Pluggable context source (e.g. LocalBridgeGatherer → Obscura + Agent-Reach). */
+	gatherer?: ContextGatherer
 	/** Called on every intervention. */
 	onIntervention?: (i: Intervention) => void
 }
@@ -78,6 +81,7 @@ export class JarvisWatcher extends EventTarget {
 	#lastCall = 0
 	#abort = new AbortController()
 	#onIntervention?: (i: Intervention) => void
+	#gatherer?: ContextGatherer
 	#handlers: Array<[string, EventListenerOrEventListenerObject]> = []
 
 	constructor(config: WatcherConfig, options: WatcherOptions = {}) {
@@ -87,6 +91,7 @@ export class JarvisWatcher extends EventTarget {
 		this.#debounceMs = options.debounceMs ?? 8000
 		this.#maxActions = options.maxContextActions ?? 8
 		this.#onIntervention = options.onIntervention
+		this.#gatherer = options.gatherer
 	}
 
 	start(): void {
@@ -186,6 +191,16 @@ export class JarvisWatcher extends EventTarget {
 			? this.#rules.trim()
 			: 'No specific rules provided. Use good judgment.'
 
+		let enriched = ''
+		if (this.#gatherer) {
+			const g = await this.#gatherer.gather(location.href, document.title)
+			if (g) {
+				if (g.pageContent) enriched += `Deep page content:\n${g.pageContent}\n\n`
+				if (g.transcript) enriched += `Video transcript:\n${g.transcript}\n\n`
+				if (g.webSignal) enriched += `Web signal (Reddit/GitHub/YouTube):\n${g.webSignal}\n\n`
+			}
+		}
+
 		const headings = Array.from(document.querySelectorAll('h1,h2,h3'))
 			.map((h) => h.textContent?.trim())
 			.filter(Boolean)
@@ -194,7 +209,7 @@ export class JarvisWatcher extends EventTarget {
 
 		const userCtx =
 			`Current page: ${document.title} (${location.href})\n` +
-			`Page context: ${headings || '(no headings)'}\n\n` +
+			(enriched || `Page context: ${headings || '(no headings)'}\n\n`) +
 			`Recent user actions (most recent last):\n` +
 			(this.#actions.length ? this.#actions.map((a) => `- ${a}`).join('\n') : '- (none yet)')
 

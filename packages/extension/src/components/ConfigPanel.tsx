@@ -51,6 +51,7 @@ export function ConfigPanel({ config, onSave, onClose }: ConfigPanelProps) {
 
 	const [jarvisProactive, setJarvisProactive] = useState(false)
 	const [jarvisRules, setJarvisRules] = useState('')
+	const [jarvisBridgeUrl, setJarvisBridgeUrl] = useState('')
 
 	const [prevConfig, setPrevConfig] = useState(config)
 	if (prevConfig !== config) {
@@ -68,14 +69,15 @@ export function ConfigPanel({ config, onSave, onClose }: ConfigPanelProps) {
 
 	// Load JARVIS proactive settings
 	useEffect(() => {
-		chrome.storage.local.get(['jarvisProactive', 'jarvisRules']).then((r) => {
+		chrome.storage.local.get(['jarvisProactive', 'jarvisRules', 'jarvisBridgeUrl']).then((r) => {
 			setJarvisProactive(Boolean(r.jarvisProactive))
 			setJarvisRules((r.jarvisRules as string) || '')
+			setJarvisBridgeUrl((r.jarvisBridgeUrl as string) || '')
 		})
 	}, [])
 
 	const handleSaveJarvis = async () => {
-		await chrome.storage.local.set({ jarvisProactive, jarvisRules })
+		await chrome.storage.local.set({ jarvisProactive, jarvisRules, jarvisBridgeUrl })
 	}
 	useEffect(() => {
 		let interval: NodeJS.Timeout | null = null
@@ -302,6 +304,17 @@ export function ConfigPanel({ config, onSave, onClose }: ConfigPanelProps) {
 				rows={3}
 				className="text-xs rounded-md border border-input bg-background px-3 py-2 resize-y min-h-[60px]"
 			/>
+			<div className="flex flex-col gap-1.5">
+				<label className="text-[10px] text-muted-foreground">
+					Bridge URL (optional — enables Obscura + Agent-Reach context)
+				</label>
+				<Input
+					placeholder="http://localhost:8787"
+					value={jarvisBridgeUrl}
+					onChange={(e) => setJarvisBridgeUrl(e.target.value)}
+					className="text-xs h-8"
+				/>
+			</div>
 			<Button
 				variant="outline"
 				size="sm"

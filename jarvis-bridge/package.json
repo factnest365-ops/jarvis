@@ -1,0 +1,10 @@
+{
+  "name": "jarvis-bridge",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Local bridge that wires Obscura (headless fetch) + Agent-Reach (transcribe) into the JARVIS watcher",
+  "scripts": {
+    "start": "node index.js"
+  }
+}

@@ -46,7 +46,7 @@ export default defineConfig({
 		description: '__MSG_extDescription__',
 		homepage_url: 'https://alibaba.github.io/page-agent/',
 		permissions: ['tabs', 'tabGroups', 'sidePanel', 'storage'],
-		host_permissions: ['<all_urls>'],
+		host_permissions: ['<all_urls>', 'http://localhost/*', 'http://127.0.0.1/*'],
 		icons: {
 			64: 'assets/page-agent-64.png',
 		},

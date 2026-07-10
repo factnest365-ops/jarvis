@@ -1,4 +1,4 @@
-import { JarvisWatcher, type Intervention } from '@/jarvis'
+import { JarvisWatcher, LocalBridgeGatherer, type Intervention } from '@/jarvis'
 
 const DEBUG = '[JARVIS]'
 
@@ -9,7 +9,7 @@ export default defineContentScript({
 	main() {
 		console.debug(`${DEBUG} content script loaded on ${location.href}`)
 
-		chrome.storage.local.get(['llmConfig', 'jarvisProactive', 'jarvisRules']).then((res) => {
+		chrome.storage.local.get(['llmConfig', 'jarvisProactive', 'jarvisRules', 'jarvisBridgeUrl']).then((res) => {
 			const cfg = res.llmConfig as
 				| { baseURL?: string; model?: string; apiKey?: string; transformRequestBody?: any; disableNamedToolChoice?: boolean }
 				| undefined
@@ -19,6 +19,7 @@ export default defineContentScript({
 				return
 			}
 
+			const bridgeUrl = res.jarvisBridgeUrl as string | undefined
 			const watcher = new JarvisWatcher(
 				{
 					baseURL: cfg.baseURL,
@@ -27,7 +28,10 @@ export default defineContentScript({
 					transformRequestBody: cfg.transformRequestBody,
 					disableNamedToolChoice: cfg.disableNamedToolChoice,
 				},
-				{ rules: (res.jarvisRules as string) || '' }
+				{
+					rules: (res.jarvisRules as string) || '',
+					gatherer: bridgeUrl ? new LocalBridgeGatherer(bridgeUrl) : undefined,
+				}
 			)
 
 			watcher.addEventListener('intervention', (e) => {

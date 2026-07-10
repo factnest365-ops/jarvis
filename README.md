@@ -43,6 +43,9 @@ with a correction, warning, or nudge **before** you go off-track.
   by `entrypoints/jarvis-watcher.content.ts`.
 - **Toggle:** enable **JARVIS Proactive Mode** + set your rules in the extension
   Settings panel (`ConfigPanel.tsx`).
+- **Bridge:** `jarvis-bridge/` — local Node service wiring **Obscura** (deep fetch +
+  web signal) and **Agent-Reach** (video transcript) into the watcher via the optional
+  **Bridge URL** setting. Gives JARVIS internet-aware context.
 
 This is the browser-native foundation of a larger JARVIS roadmap (proactive
 copilot → business runner → autonomous ops). Built on Alibaba's open-source
