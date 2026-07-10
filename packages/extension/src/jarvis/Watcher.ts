@@ -11,10 +11,19 @@
 import { LLM, type Tool } from '@page-agent/llms'
 import * as z from 'zod/v4'
 
+import { LocalBridgeGatherer } from './context'
 import type { ContextGatherer } from './context'
 import SYSTEM_PROMPT from './prompts/jarvis_system.md?raw'
 
 export type Severity = 'info' | 'warn' | 'critical'
+
+export interface JarvisAction {
+	type: 'download' | 'draft' | 'opencli'
+	label?: string
+	url?: string
+	prompt?: string
+	args?: string[]
+}
 
 export interface Intervention {
 	intervene: boolean
@@ -22,6 +31,8 @@ export interface Intervention {
 	reason: string
 	message: string
 	suggestion: string
+	/** Optional concrete action JARVIS proposes (user approves before it runs). */
+	action?: JarvisAction
 }
 
 export interface WatcherConfig {
@@ -41,6 +52,8 @@ export interface WatcherOptions {
 	maxContextActions?: number
 	/** Pluggable context source (e.g. LocalBridgeGatherer → Obscura + Agent-Reach). */
 	gatherer?: ContextGatherer
+	/** Base URL of the local JARVIS bridge (jarvis-bridge). Builds a gatherer + enables actions. */
+	bridgeUrl?: string
 	/** Called on every intervention. */
 	onIntervention?: (i: Intervention) => void
 }
@@ -54,6 +67,15 @@ const interventionTool: Tool<Intervention, Intervention> = {
 		reason: z.string(),
 		message: z.string(),
 		suggestion: z.string(),
+		action: z
+			.object({
+				type: z.enum(['download', 'draft', 'opencli']),
+				label: z.string().optional(),
+				url: z.string().optional(),
+				prompt: z.string().optional(),
+				args: z.array(z.string()).optional(),
+			})
+			.optional(),
 	}),
 	execute: async (input) => input,
 }
@@ -82,6 +104,7 @@ export class JarvisWatcher extends EventTarget {
 	#abort = new AbortController()
 	#onIntervention?: (i: Intervention) => void
 	#gatherer?: ContextGatherer
+	#bridgeUrl?: string
 	#handlers: Array<[string, EventListenerOrEventListenerObject]> = []
 
 	constructor(config: WatcherConfig, options: WatcherOptions = {}) {
@@ -92,6 +115,39 @@ export class JarvisWatcher extends EventTarget {
 		this.#maxActions = options.maxContextActions ?? 8
 		this.#onIntervention = options.onIntervention
 		this.#gatherer = options.gatherer
+		if (!this.#gatherer && options.bridgeUrl) {
+			this.#gatherer = new LocalBridgeGatherer(options.bridgeUrl)
+		}
+		this.#bridgeUrl = options.bridgeUrl
+	}
+
+	/** Base URL of the local JARVIS bridge, if configured. */
+	get bridgeUrl(): string | undefined {
+		return this.#bridgeUrl
+	}
+
+	/**
+	 * Generate a draft reply/comment via the LLM (used when an intervention
+	 * proposes a `draft` action). The user reviews before anything is posted.
+	 */
+	async draft(prompt: string): Promise<string> {
+		const tool: Tool<{ text: string }, { text: string }> = {
+			description: 'Return the drafted text.',
+			inputSchema: z.object({ text: z.string() }),
+			execute: async (input) => input,
+		}
+		const messages = [
+			{
+				role: 'system' as const,
+				content:
+					'You are JARVIS. Draft the requested reply/comment exactly per the instruction and the user’s brand voice. Return ONLY the draft text, no preamble or quotes.',
+			},
+			{ role: 'user' as const, content: prompt },
+		]
+		const res = await this.#llm.invoke(messages, { reply: tool }, this.#abort.signal, {
+			toolChoiceName: 'reply',
+		})
+		return (res.toolResult as { text: string }).text
 	}
 
 	start(): void {

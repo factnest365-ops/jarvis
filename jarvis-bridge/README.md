@@ -27,7 +27,19 @@ extension and set **Bridge URL** to `http://localhost:8787`.
 `POST /context`  body: `{ "url": "...", "title": "..." }`
 → `{ "url", "title", "pageContent", "transcript", "webSignal" }`
 
+`POST /act`  body: `{ "action": "download", "url": "<file>", "name": "<opt>" }`
+or `{ "action": "opencli", "args": ["browser","click", ...] }`
+→ `{ "ok": true, "path": "<local file>" }` (download) or OpenCLI stdout
+
 `GET /health` → `ok`
+
+JARVIS *proposes* actions (download / draft / opencli); the user approves in the
+bubble before anything runs. `draft` is generated client-side by the LLM.
+
+## Action safety
+- `download` and `opencli` run only after you tap the button in the JARVIS bubble.
+- `opencli` acts on your *logged-in* browser — use with care.
+- `draft` never posts; it only generates text you can copy/review.
 
 ## Env
 

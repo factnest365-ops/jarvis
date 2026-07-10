@@ -1,4 +1,4 @@
-import { JarvisWatcher, LocalBridgeGatherer, type Intervention } from '@/jarvis'
+import { JarvisWatcher, type Intervention } from '@/jarvis'
 
 const DEBUG = '[JARVIS]'
 
@@ -30,13 +30,13 @@ export default defineContentScript({
 				},
 				{
 					rules: (res.jarvisRules as string) || '',
-					gatherer: bridgeUrl ? new LocalBridgeGatherer(bridgeUrl) : undefined,
+					bridgeUrl,
 				}
 			)
 
 			watcher.addEventListener('intervention', (e) => {
 				const detail = (e as CustomEvent<Intervention>).detail
-				showBubble(detail)
+				showBubble(detail, watcher, bridgeUrl)
 			})
 
 			watcher.start()
@@ -51,7 +51,7 @@ const SEVERITY_COLOR: Record<string, string> = {
 	critical: '#ef4444',
 }
 
-function showBubble(i: Intervention): void {
+function showBubble(i: Intervention, watcher?: JarvisWatcher, bridgeUrl?: string): void {
 	const root = document.getElementById('jarvis-bubble-root')
 		|| (() => {
 			const el = document.createElement('div')
@@ -79,6 +79,45 @@ function showBubble(i: Intervention): void {
 
 	const close = () => card.remove()
 	card.querySelector('button')?.addEventListener('click', close)
+
+	if (i.action) {
+		const act = i.action
+		const btn = document.createElement('button')
+		btn.textContent = act.label || 'Do it'
+		btn.style.cssText =
+			'margin-top:8px;background:#0b0b0f;color:#fff;border:1px solid ' + color +
+			';border-radius:6px;padding:5px 12px;font-size:12px;cursor:pointer;font-weight:600;'
+		btn.addEventListener('click', async () => {
+			btn.disabled = true
+			btn.textContent = 'Working…'
+			try {
+				if (act.type === 'draft' && watcher && act.prompt) {
+					const text = await watcher.draft(act.prompt)
+					card.innerHTML =
+						`<div style="margin-bottom:6px;white-space:pre-wrap;">${escapeHtml(text)}</div>` +
+						`<button id="jarvis-copy" style="background:${color};color:#fff;border:none;border-radius:6px;padding:4px 10px;font-size:12px;cursor:pointer;">Copy</button>`
+					card.querySelector('#jarvis-copy')?.addEventListener('click', () => {
+						navigator.clipboard.writeText(text)
+						card.querySelector('#jarvis-copy')!.textContent = 'Copied ✓'
+					})
+				} else if ((act.type === 'download' || act.type === 'opencli') && bridgeUrl) {
+					const r = await fetch(bridgeUrl.replace(/\/$/, '') + '/act', {
+						method: 'POST',
+						headers: { 'content-type': 'application/json' },
+						body: JSON.stringify({ action: act.type, url: act.url, args: act.args }),
+					})
+					const j = (await r.json()) as { ok?: boolean; path?: string }
+					btn.textContent = j.path ? 'Saved ✓' : j.ok ? 'Done ✓' : 'Failed'
+				} else {
+					btn.textContent = 'No bridge'
+				}
+			} catch {
+				btn.textContent = 'Error'
+			}
+		})
+		card.appendChild(btn)
+	}
+
 	root.appendChild(card)
 	setTimeout(close, 15000)
 
