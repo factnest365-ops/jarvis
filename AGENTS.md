@@ -149,3 +149,21 @@ cd packages/llms && npx vitest      # watch mode in one package
 - All code and comments must be in English.
 - Do not try to hide errors or risks. They are valuable feedbacks for developers and users. Make them visible and actionable.
 - Traceability and predictability is more important than success rate.
+
+## Subagent Discipline (Mahoraga hit — 2026-07-15)
+Spawn subagents ONLY for **genuine parallel execution** of independent work
+(e.g. multiple concurrent web/automation/fetch tasks, or broad independent
+codebase searches that would otherwise blow your context).
+
+**Pre-flight gate — BOTH must be YES before spawning:**
+1. Will I read this source into my own context to write the answer? -> YES = DON'T spawn. Do it directly.
+2. Can I do other useful work while it runs in the background? -> NO = DON'T spawn (it only adds latency, no benefit).
+
+If either is NO, do the work inline. Never spawn for:
+- Work you are (or will be) reading into your own context anyway.
+- "Parallelizing" a single summary/analysis you could write directly.
+- "Protecting context" when you already hold the source.
+
+Note: in this harness `get_subagent_result` does NOT resolve agent IDs
+(outputs arrive only as follow-up messages), so never architect a flow that
+depends on mid-turn retrieval of subagent results.
